@@ -1,0 +1,4 @@
+wau_defender
+*.o
+build/
+.vscode/
