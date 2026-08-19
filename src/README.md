@@ -1,4 +1,4 @@
-# Malaysia Day: Wau Defender 🪁🇲🇾
+# Malaysia Day: Wau Adventure 🪁🇲🇾
 
 A 2D arcade survival game built using **C++20** and **Raylib** for WSL/Linux, created to celebrate Malaysia Day! Control a traditional Wau kite as you dodge storm clouds and gather Malaysian cultural items over the iconic Kuala Lumpur skyline.
 
