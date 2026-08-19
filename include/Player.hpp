@@ -11,11 +11,17 @@ class Player {
         int m_score;
         int m_health;
 
+        //Animation state variables
+        int m_currentFrame;
+        float m_frameTimer;
+        float m_frameSpeed; //Delay between frames in seconds
+        int totalFrames; //Total number of frames in the animation
+
     public:
         Player(float startX, float startY);
 
         void Update(float deltaTime, int screenWidth, int screenHeight);
-        void Draw() const;
+        void Draw(const Texture2D* wauSpriteSheet) const;
 
         void AddScore(int amount) {
             m_score += amount;
@@ -23,7 +29,9 @@ class Player {
         void TakeDamage(int amount) {
             m_health -= amount;
         }
-        void ApplySpeedBoost(float duration);
+        void ApplySpeedBoost(float duration) {
+            m_speedBoostTimer = duration;
+        }
 
         int GetScore() const {
             return m_score;

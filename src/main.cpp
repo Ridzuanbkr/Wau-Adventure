@@ -2,6 +2,7 @@
 #include "raylib.h"
 #include "Player.hpp"
 #include "Entity.hpp"
+#include "ResourceManager.hpp"
 #include <vector>
 #include <memory>
 #include <cstdlib>
@@ -13,6 +14,9 @@ enum class GameState {
     GAMEOVER
 };
 
+void DrawTextureScaled(const Texture2D& texture, float posX, float posY, float scaleX, float scaleY) {
+    DrawTextureEx(texture, {posX, posY}, 0.0f, scaleX / texture.width, WHITE);
+}
 int main() {
     // 9:16 Aspect Ratio for Mobile Devices
     const int screenWidth = 450;
@@ -20,6 +24,25 @@ int main() {
 
     InitWindow(screenWidth, screenHeight, "Malaysia Day: Wau Adventure");
     SetTargetFPS(60);
+
+    InitAudioDevice();
+    SetMasterVolume(0.5f); // Set the master volume to 50%
+
+    // RAII Asset Loader
+    TextureWrapper bgTex("assets/background_twin_tower.png");
+    TextureWrapper starTex("assets/star.png");
+    TextureWrapper cloudTex("assets/cloud.png");
+    TextureWrapper hibiscusTex("assets/hibiscus.png");
+    TextureWrapper wauTex("assets/wau.png");
+
+    SoundWrapper starsfx("assets/star_pickup_sfx.wav");
+    SoundWrapper boostsfx("assets/boost_sfx.wav");
+    SoundWrapper hitsfx("assets/cloud_hit_sfx.wav");
+
+    Music bgm = LoadMusicStream("assets/background.wav");
+    if (bgm.stream.buffer != nullptr) {
+        PlayMusicStream(bgm);
+    }
 
     GameState currentState = GameState::MENU;
     Player player(screenWidth / 2.0f - 20.0f, screenHeight - 120.0f);
@@ -38,6 +61,7 @@ int main() {
     };
 
     while (!WindowShouldClose()) {
+        UpdateMusicStream(bgm); //Keep BGM playing
         float deltaTime = GetFrameTime();
         Vector2 mousePoint = GetMousePosition();
 
@@ -113,10 +137,13 @@ int main() {
 
                         if (entity->GetType() == EntityType::STAR) {
                             player.AddScore(10);
+                            starsfx.Play(); // Play star pickup sound effect
                         } else if (entity->GetType() == EntityType::HIBISCUS) {
                             player.ApplySpeedBoost(14.0f);
+                            boostsfx.Play(); // Play speed boost sound effect
                         } else {
                             player.TakeDamage(1);
+                            hitsfx.Play(); // Play cloud hit sound effect
                         }
                     }
                 }
@@ -147,40 +174,81 @@ int main() {
         }
 
         BeginDrawing();
+
+        if (bgTex.IsLoaded()) {
+            DrawTextureScaled(*bgTex.GetPtr(), 0, 0, screenWidth, screenHeight);
+        } else {
+            ClearBackground(DARKBLUE);
+        }
         ClearBackground(DARKBLUE);
 
         if (currentState == GameState::MENU) {
+            DrawRectangle(0, 0, screenWidth, screenHeight, Fade(DARKBLUE, 0.5f)); // Dim overlay
             DrawText("Malaysia Day", screenWidth / 2 - MeasureText("Malaysia Day", 32) / 2, 220, 32, YELLOW);
             DrawText("Wau Adventure", screenWidth / 2 - MeasureText("Wau Adventure", 18) / 2, 260, 18, YELLOW);
             DrawRectangleRec(startButton, CheckCollisionPointRec(mousePoint, startButton) ? GREEN : DARKGREEN);
             DrawText("Start Game", startButton.x + 25, startButton.y + 15, 20, BLACK);
             DrawRectangleRec(quitButton, CheckCollisionPointRec(mousePoint, quitButton) ? RED : RAYWHITE);
             DrawText("Quit", quitButton.x + 65, quitButton.y + 15, 20, BLACK);
+
         } else if (currentState == GameState::TUTORIAL) {
-            DrawText("HOW TO PLAY?", screenWidth / 2 - MeasureText("HOW TO PLAY?", 28) / 2, 60, 28, YELLOW);
-            DrawText("CONTROLS:", 30, 120, 20, RAYWHITE);
-            DrawText("Use W/A/S/D or Arrow Keys to move the Wau.", 30, 160, 16, LIGHTGRAY);
-            DrawText("OBJECTIVE & ITEMS:", 30, 210, 20, RAYWHITE);
 
-            DrawCircle(50, 260, 10, GOLD);
-            DrawText("Star (+10 points)", 75, 252, 18, GOLD);
-            DrawText("Collect Stars for points.", 75, 275, 14, RAYWHITE);
+            DrawRectangle(20, 40, screenWidth - 40, screenHeight - 120, Fade(BLACK, 0.82f)); // Dim overlay
+            DrawRectangleLines(20, 40, screenWidth - 40, screenHeight - 120, YELLOW); // Border
+            DrawText("HOW TO PLAY?", 90, 60, 28, YELLOW);
+            int startY = 110;
+            DrawText("CONTROLS:", 40, startY, 20, LIGHTGRAY);
+             DrawText("Use W/A/S/D or Arrow Keys", 40, startY + 28, 16, WHITE);
 
-            DrawRectangle(40, 395, 24, 24, GRAY);
-            DrawText("Cloud (Dangerous)", 75, 392, 18, RED);
-            DrawText("Avoid Clouds! They reduce health by 1 point.", 75, 415, 14, RAYWHITE);
-
-            DrawCircle(50, 330, 12, PINK);
-            DrawText("Hibiscus (Speed Boost; 2.2x speed)", 75, 322, 18, PINK);
-            DrawText("Collect Hibiscus for a speed boost for 14 seconds!", 75, 345, 14, RAYWHITE);
-
-            DrawRectangle(30, 680, 390, 60, RAYWHITE);
-            DrawText("Press ENTER or SPACE to start playing.", screenWidth / 2 - MeasureText("Press ENTER or SPACE to start playing.", 20) / 2, 695, 20, DARKBLUE);
+            if (wauTex.IsLoaded()) {
+                float frameWidth = static_cast<float>(wauTex.Get().width) / 4.0f; // Assuming 3 frames in the sprite sheet
+                float frameHeight = static_cast<float>(wauTex.Get().height);
+                Rectangle src = {0.0f, 0.0f, frameWidth, frameHeight};
+                Rectangle dest = {30, static_cast<float>(startY + 55), 32.0f, 32.0f}; // Adjusted size for better visibility
+                DrawTexturePro(wauTex.Get(), src, dest, {0.0f, 0.0f}, 0.0f, WHITE);
+            } 
+            DrawText("move Wau Kite", 85, startY + 62, 16, WHITE);
+           
+            int objY = startY + 110;
+            DrawText("OBJECTIVE & ITEMS:", 40, objY, 20, LIGHTGRAY);
             
+            int starY = objY + 35;
+            if (starTex.IsLoaded()) {
+                Rectangle src = {0.0f, 0.0f, static_cast<float>(starTex.Get().width), static_cast<float>(starTex.Get().height)};
+                Rectangle dest = {40, static_cast<float>(starY), 28.0f, 28.0f};
+                DrawTexturePro(starTex.Get(), src, dest, {0.0f, 0.0f}, 0.0f, WHITE);
+            } 
+            DrawText("Star (+10 points)", 80, starY, 18, GOLD);
+            DrawText("Collect Stars for points.", 80, starY + 22, 14, RAYWHITE);
+
+            int hibY = starY + 60;
+            if (hibiscusTex.IsLoaded()) {
+                Rectangle src = {0.0f, 0.0f, static_cast<float>(hibiscusTex.Get().width), static_cast<float>(hibiscusTex.Get().height)};
+                Rectangle dest = {40, static_cast<float>(hibY), 28.0f, 28.0f};
+                DrawTexturePro(hibiscusTex.Get(), src, dest, {0.0f, 0.0f}, 0.0f, WHITE);
+            } 
+            DrawText("Hibiscus (Speed Boost; 2.2x speed)", 80, hibY, 18, PINK);
+            DrawText("Collect Hibiscus for a speed boost for 14 seconds!", 80, hibY + 22, 14, RAYWHITE);
+
+            int cloudY = hibY + 60;
+            if (cloudTex.IsLoaded()) {
+                Rectangle src = {0.0f, 0.0f, static_cast<float>(cloudTex.Get().width), static_cast<float>(cloudTex.Get().height)};
+                Rectangle dest = {40, static_cast<float>(cloudY), 28.0f, 28.0f};
+                DrawTexturePro(cloudTex.Get(), src, dest, {0.0f, 0.0f}, 0.0f, WHITE);
+            } 
+            DrawText("Cloud (Dangerous)", 80, cloudY, 18, RED);
+            DrawText("Avoid Clouds! They reduce health by 1 point.", 80, cloudY + 22, 14, RAYWHITE);
+
+            DrawRectangle(30, screenHeight - 70, screenWidth - 60, 45, RAYWHITE);
+            DrawText("Press ENTER or SPACE to start playing.", 50, screenHeight - 58, 18, DARKBLUE);
         } else if (currentState == GameState::PLAYING) {
-            player.Draw();
+            player.Draw(wauTex.GetPtr());
             for (auto& entity : entities) {
-                entity->Draw();
+                entity->Draw(
+                    starTex.GetPtr(),
+                    cloudTex.GetPtr(),
+                    hibiscusTex.GetPtr()
+                );
             }
 
             DrawText(TextFormat("Score: %d", player.GetScore()), 10, 10, 18, YELLOW);
@@ -205,7 +273,8 @@ int main() {
 
         EndDrawing();
     }
-
+    UnloadMusicStream(bgm);
+    CloseAudioDevice();
     CloseWindow();
     return 0;
 }
