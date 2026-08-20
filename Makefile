@@ -1,4 +1,4 @@
-CXX = g++
+CXX = c++
 CXXFLAGS = -std=c++20 -Wall -Wextra -Iinclude
 LDFLAGS = -L/usr/local/lib -lraylib -lGL -lm -lpthread -ldl -lrt -lX11
 
